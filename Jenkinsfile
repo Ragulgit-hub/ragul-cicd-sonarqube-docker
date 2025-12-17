@@ -1,15 +1,13 @@
 pipeline {
     agent any
 
-    tools {
-        // MUST match names in Global Tool Configuration (case-sensitive)
-        maven 'MAVEN'
-        jdk 'JAVA_HOME'
+    environment {
+        DOCKER_IMAGE = "ragul/demoapp"
+        DOCKER_TAG   = "latest"
     }
 
-    environment {
-        DOCKER_IMAGE = "ragul/demoapp"      // <-- replace with YOUR DockerHub repo
-        DOCKER_TAG   = "latest"
+    options {
+        skipDefaultCheckout(true)
     }
 
     stages {
@@ -40,19 +38,19 @@ pipeline {
             steps {
                 echo "Running SonarQube analysis"
                 withSonarQubeEnv('SonarQube') {
-                    sh '''
+                    sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=ragul-cicd-sonarqube-docker \
                         -Dsonar.projectName=ragul-cicd-sonarqube-docker
-                    '''
+                    """
                 }
             }
         }
 
         stage('Quality Gate') {
             steps {
-                echo "Waiting for SonarQube Quality Gate result"
-                timeout(time: 5, unit: 'MINUTES') {
+                echo "Waiting for SonarQube Quality Gate"
+                timeout(time: 2, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -61,9 +59,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo "Building Docker image"
-                sh '''
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                '''
+                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
             }
         }
 
@@ -75,21 +71,21 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    sh """
+                        echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
                         docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                    '''
+                    """
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                echo "Deploying Docker container on EC2"
-                sh '''
+                echo "Deploying application container"
+                sh """
                     docker rm -f ragul-app || true
                     docker run -d --name ragul-app -p 8080:8080 ${DOCKER_IMAGE}:${DOCKER_TAG}
-                '''
+                """
             }
         }
     }
@@ -99,7 +95,7 @@ pipeline {
             echo "✅ Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed. Fix the errors and retry."
+            echo "❌ Pipeline failed. Please check logs."
         }
     }
 }
