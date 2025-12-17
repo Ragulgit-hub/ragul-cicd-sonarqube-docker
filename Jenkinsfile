@@ -2,12 +2,13 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven'
-        jdk 'JAVA21'
+        // MUST match names in Global Tool Configuration (case-sensitive)
+        maven 'MAVEN'
+        jdk 'JAVA_HOME'
     }
 
     environment {
-        DOCKER_IMAGE = "yourdockerhubusername/ragul-cicd-app"
+        DOCKER_IMAGE = "ragul/demoapp"      // <-- replace with YOUR DockerHub repo
         DOCKER_TAG   = "latest"
     }
 
@@ -17,7 +18,7 @@ pipeline {
             steps {
                 echo "Cloning source code from GitHub"
                 git branch: 'main',
-                    url: 'https://github.com/yourusername/ragul-cicd-sonarqube-docker.git'
+                    url: 'https://github.com/Ragulgit-hub/ragul-cicd-sonarqube-docker.git'
             }
         }
 
@@ -51,7 +52,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 echo "Waiting for SonarQube Quality Gate result"
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -61,7 +62,7 @@ pipeline {
             steps {
                 echo "Building Docker image"
                 sh '''
-                    docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                 '''
             }
         }
@@ -75,8 +76,8 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push $DOCKER_IMAGE:$DOCKER_TAG
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                     '''
                 }
             }
@@ -84,10 +85,10 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo "Deploying Docker container"
+                echo "Deploying Docker container on EC2"
                 sh '''
                     docker rm -f ragul-app || true
-                    docker run -d --name ragul-app -p 8080:8080 $DOCKER_IMAGE:$DOCKER_TAG
+                    docker run -d --name ragul-app -p 8080:8080 ${DOCKER_IMAGE}:${DOCKER_TAG}
                 '''
             }
         }
@@ -98,7 +99,7 @@ pipeline {
             echo "✅ Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed. Fix issues and retry."
+            echo "❌ Pipeline failed. Fix the errors and retry."
         }
     }
 }
