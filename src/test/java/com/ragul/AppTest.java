@@ -1,12 +1,16 @@
 package com.ragul;
 
-public class App {
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-	    public static void main(String[] args) {
-		            System.out.println("Hi, welcome to Ragul's CI/CD Pipeline Project!");
-			        }//Method used for unit testing
-	    public static String getMessage() {
-		            return "Hi, welcome to Ragul's CI/CD Pipeline Project!";
-			        }
+public class AppTest {
+
+    @Test
+    void testMainMessage() {
+        App app = new App();
+        assertEquals(
+            "Hi, welcome to the Ragul's CI/CD pipeline project!",
+            app.getMessage()
+        );
+    }
 }
-
