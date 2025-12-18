@@ -22,7 +22,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean compile'
+                sh 'mvn clean package'
             }
         }
 
@@ -59,7 +59,7 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
                     '''
                 }
@@ -78,10 +78,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully (Quality Gate PASSED)"
+            echo "✅ CI/CD Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed due to Quality Gate or build error"
+            echo "❌ Pipeline failed. Check Quality Gate or Docker stage."
         }
     }
 }
