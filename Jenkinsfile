@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     tools {
-        maven 'MAVEN'        // MUST match Global Tool Configuration
-        jdk 'JAVA_HOME'     // MUST match Global Tool Configuration
+        maven 'MAVEN'
+        jdk 'JAVA_HOME'
     }
 
     environment {
-        DOCKER_IMAGE = "raguldochub/ragul-cicd-app"
+        DOCKER_IMAGE = "ragul/demoapp"
         DOCKER_TAG   = "latest"
     }
 
@@ -15,7 +15,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "📥 Cloning source code from GitHub"
+                echo "Checkout source code"
                 git branch: 'main',
                     url: 'https://github.com/Ragulgit-hub/ragul-cicd-sonarqube-docker.git'
             }
@@ -23,21 +23,21 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo "🔨 Building the project"
+                echo "Build application"
                 sh 'mvn clean compile'
             }
         }
 
         stage('Test') {
             steps {
-                echo "🧪 Running unit tests"
+                echo "Run unit tests"
                 sh 'mvn test'
             }
         }
 
-        stage('SonarQube Scan') {
+        stage('SonarQube Analysis') {
             steps {
-                echo "🔍 Running SonarQube analysis"
+                echo "Run SonarQube scan"
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         mvn sonar:sonar \
@@ -50,8 +50,8 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                echo "🚦 Waiting for SonarQube Quality Gate result"
-                timeout(time: 10, unit: 'MINUTES') {
+                echo "Waiting for SonarQube Quality Gate"
+                timeout(time: 15, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -59,14 +59,14 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                echo "🐳 Building Docker image"
+                echo "Build Docker image"
                 sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
             }
         }
 
         stage('Docker Push') {
             steps {
-                echo "📤 Pushing image to DockerHub"
+                echo "Push Docker image"
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
                     usernameVariable: 'DOCKER_USER',
@@ -82,7 +82,7 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo "🚀 Deploying application"
+                echo "Deploy container"
                 sh '''
                     docker rm -f ragul-app || true
                     docker run -d --name ragul-app -p 8080:8080 $DOCKER_IMAGE:$DOCKER_TAG
@@ -93,10 +93,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully!"
+            echo "✅ Pipeline completed successfully"
         }
         failure {
-            echo "❌ Pipeline failed. Please check logs."
+            echo "❌ Pipeline failed due to Quality Gate or build error"
         }
     }
 }
