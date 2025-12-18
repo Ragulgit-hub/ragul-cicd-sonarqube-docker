@@ -15,7 +15,6 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "Checkout source code"
                 git branch: 'main',
                     url: 'https://github.com/Ragulgit-hub/ragul-cicd-sonarqube-docker.git'
             }
@@ -23,50 +22,37 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo "Build application"
                 sh 'mvn clean compile'
             }
         }
 
         stage('Test') {
             steps {
-                echo "Run unit tests"
                 sh 'mvn test'
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('SonarQube Analysis + Quality Gate') {
             steps {
-                echo "Run SonarQube scan"
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         mvn sonar:sonar \
                         -Dsonar.projectKey=ragul-cicd-sonarqube-docker \
-                        -Dsonar.projectName=ragul-cicd-sonarqube-docker
+                        -Dsonar.projectName=ragul-cicd-sonarqube-docker \
+                        -Dsonar.qualitygate.wait=true
                     '''
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                echo "Waiting for SonarQube Quality Gate"
-                timeout(time: 15, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
         stage('Docker Build') {
             steps {
-                echo "Build Docker image"
                 sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
             }
         }
 
         stage('Docker Push') {
             steps {
-                echo "Push Docker image"
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
                     usernameVariable: 'DOCKER_USER',
@@ -82,7 +68,6 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo "Deploy container"
                 sh '''
                     docker rm -f ragul-app || true
                     docker run -d --name ragul-app -p 8080:8080 $DOCKER_IMAGE:$DOCKER_TAG
@@ -93,7 +78,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully"
+            echo "✅ Pipeline completed successfully (Quality Gate PASSED)"
         }
         failure {
             echo "❌ Pipeline failed due to Quality Gate or build error"
