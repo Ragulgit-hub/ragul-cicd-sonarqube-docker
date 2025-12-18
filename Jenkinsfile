@@ -15,58 +15,43 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "Cloning source code from GitHub"
                 git branch: 'main',
                     url: 'https://github.com/Ragulgit-hub/ragul-cicd-sonarqube-docker.git'
             }
         }
 
-        stage('Build') {
+        stage('Build & Test') {
             steps {
-                echo "Building the project"
-                sh 'mvn clean compile'
+                sh 'mvn clean package'
             }
         }
-
         stage('Test') {
             steps {
-                echo "Running unit tests"
                 sh 'mvn test'
             }
         }
 
-        stage('SonarQube Scan') {
+        stage('SonarQube Analysis + Quality Gate') {
             steps {
-                echo "Running SonarQube analysis"
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         mvn sonar:sonar \
                         -Dsonar.projectKey=ragul-cicd-sonarqube-docker \
-                        -Dsonar.projectName=ragul-cicd-sonarqube-docker
+                        -Dsonar.projectName=ragul-cicd-sonarqube-docker \
+                        -Dsonar.qualitygate.wait=true
                     '''
                 }
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                echo "Waiting for SonarQube Quality Gate"
-                waitForQualityGate abortPipeline: true
-            }
-        }
-
         stage('Docker Build') {
             steps {
-                echo "Building Docker image"
-                sh '''
-                    docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
-                '''
+                sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
             }
         }
 
         stage('Docker Push') {
             steps {
-                echo "Pushing Docker image to Docker Hub"
                 withCredentials([usernamePassword(
                     credentialsId: 'docker_jenkins_token',
                     usernameVariable: 'DOCKER_USER',
@@ -78,17 +63,25 @@ pipeline {
                     '''
                 }
             }
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: 'docker_jenkins_token',
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_PASS'
+        )]) {
+            sh '''
+                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                docker push $DOCKER_IMAGE:$DOCKER_TAG
+            '''
         }
 
+    }
+}
         stage('Deploy') {
             steps {
-                echo "Deploying Docker container"
                 sh '''
                     docker rm -f ragul-app || true
-                    docker run -d \
-                      --name ragul-app \
-                      -p 8081:8080 \
-                      $DOCKER_IMAGE:$DOCKER_TAG
+                    docker run -d --name ragul-app -p 8080:8080 $DOCKER_IMAGE:$DOCKER_TAG
                 '''
             }
         }
@@ -96,10 +89,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully!"
+            echo "✅ CI/CD Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed. Please check the logs."
+            echo "❌ Pipeline failed. Check Quality Gate or Docker stage."
         }
     }
 }
