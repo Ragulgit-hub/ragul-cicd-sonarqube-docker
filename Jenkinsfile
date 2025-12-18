@@ -67,9 +67,13 @@ pipeline {
 }
         stage('Deploy') {
             steps {
+                echo "Deploying Docker container"
                 sh '''
                     docker rm -f ragul-app || true
-                    docker run -d --name ragul-app -p 8080:8080 $DOCKER_IMAGE:$DOCKER_TAG
+                    docker run -d \
+                    --name ragul-app \
+                    -p 8081:8080 \
+                    raguldochub/demoapp:latest
                 '''
             }
         }
